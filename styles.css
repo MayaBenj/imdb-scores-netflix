@@ -1,0 +1,53 @@
+.btnOn {
+  border: 1px solid #f35454;
+  background-color: #db0505;
+  color: #000000;
+  border-radius: 8px;
+  padding: 5px 10px;
+}
+
+button:hover:enabled {
+  border: 1px solid #f35454;
+  background-color: #ff6d6d;
+  color: #000000;
+  border-radius: 8px;
+  padding: 5px 10px;
+}
+
+.btnOff {
+  border: 1px solid #615a5a;
+  background-color: #bebebe;
+  color: #1f1e1e;
+  border-radius: 8px;
+  padding: 5px 10px;
+}
+
+img {
+  margin-top: 20px;
+  margin-bottom: -10px;
+}
+
+div {
+  padding: 1px 10px;
+}
+
+pre {
+  color: #ffffff;
+  font-size: 10px;
+  white-space:pre-wrap;
+  padding-bottom: 30px;
+}
+
+.hideElement{
+  display: none !important;
+}
+
+.showElement{
+  display: block;
+}
+
+.btnStorage {
+  position: absolute;
+  left: 30px;
+  bottom: 20px;
+}
