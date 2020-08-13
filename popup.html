@@ -1,0 +1,24 @@
+  <html>
+    <head>
+      <title>Netflix Rating</title>
+      <link rel="stylesheet" href="styles.css">
+    </head>
+    <body style="background-color: black">
+        <img src='./netflixRating.jpg' id='netflixRating'>
+        <div>
+            <img src='./imdbIcon.png' id='imdbIcon'>
+            <button id='imdbButtonEnable' class=btnOn disabled>Enable</button>
+            <button id='imdbButtonDisable' class=btnOff>Disable</button>
+        </div>
+        <div>
+            <img src='./rottenTomatoesIcon.png' id='rottenTomatoesIcon'>
+            <button id='rottenTomatoesButtonEnable' class=btnOff>Enable</button>
+            <button id='rottenTomatoesButtonDisable' class=btnOn disabled>Disable</button>
+            <pre id='RTmessage' class=hideElement>When enabling Rotten Tomatoes please allow 10 seconds for ratings to load.</pre>
+        </div>
+        <div>
+            <button id='deleteStorageData' class="btnOn btnStorage">Delete Stored Data</button>
+        </div>
+     <script src="popup.js"></script>
+    </body>
+  </html>
