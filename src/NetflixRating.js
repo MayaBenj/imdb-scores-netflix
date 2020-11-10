@@ -23,28 +23,31 @@ var urlResolved = new Set();
 
 function isEmpty(obj) {
     return Object.keys(obj).length === 0;
-  }
+}
 
 function request(method, url) {
-    return new Promise(function (resolve, reject) {
+    return new Promise(function(resolve, reject) {
         var xhr = new XMLHttpRequest();
         xhr.open(method, url);
-        xhr.onload = function () {resolve(JSON.parse(xhr.response))};
-        xhr.onerror = function () {reject()};
+        xhr.onload = function() {
+            resolve(JSON.parse(xhr.response))
+        };
+        xhr.onerror = function() {
+            reject()
+        };
         xhr.send();
     });
 }
 
 function requestCORS(method, url) {
-    return new Promise(function (resolve, reject) {
+    return new Promise(function(resolve, reject) {
         var xhr = new XMLHttpRequest();
         xhr.open(method, PROXY_URL + url, true);
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-        xhr.onload = function () {
-            if (xhr.status === 200){
+        xhr.onload = function() {
+            if (xhr.status === 200) {
                 resolve(xhr.response)
-            }
-            else { 
+            } else {
                 resolve(NA);
             }
         };
@@ -54,96 +57,89 @@ function requestCORS(method, url) {
                 resolve(url);
             };
         };
-        xhr.onerror = function () {resolve(NA)};
+        xhr.onerror = function() {
+            resolve(NA)
+        };
         xhr.send();
     });
 }
 
-function getImdbScore(name)
-{
+function getImdbScore(name) {
     return new Promise(function(resolve, reject) {
-        uri = "https://www.omdbapi.com/?t=" + encodeURIComponent(name) + "&apikey=######"
+        uri = "https://www.omdbapi.com/?t=" + encodeURIComponent(name) + "&apikey=#######"
         request(GET, uri)
-        .then(function (jsonResponse) {
-            if (jsonResponse.Response == "True") {
-                resolve (jsonResponse.imdbRating)
-            }
-            else if (name.includes(SPACE)) {
-                getImdbScore(name.substr(0, name.lastIndexOf(SPACE)).split(/[!@#$%^&*(),.?":{}|<>]$/g)[0])
-                .then(function(imdbRating) {
-                    resolve (imdbRating)
-                });
-            }
-            else {
-                resolve(NA);
-            }
-        })
+            .then(function(jsonResponse) {
+                if (jsonResponse.Response == "True") {
+                    resolve(jsonResponse.imdbRating)
+                } else if (name.includes(SPACE)) {
+                    getImdbScore(name.substr(0, name.lastIndexOf(SPACE)).split(/[!@#$%^&*(),.?":{}|<>]$/g)[0])
+                        .then(function(imdbRating) {
+                            resolve(imdbRating)
+                        });
+                } else {
+                    resolve(NA);
+                }
+            })
     });
 }
 
-function nameToRTStandard(name){
-    var splitSpecialCharsBeg = name.split(/^[!@#$%^&*(),.?":{}|<>]/g);      // remove special chars from beginning
+function nameToRTStandard(name) {
+    var splitSpecialCharsBeg = name.split(/^[!@#$%^&*(),.?":{}|<>]/g); // remove special chars from beginning
     if (splitSpecialCharsBeg[1] !== undefined) {
         name = splitSpecialCharsBeg[1]
     }
-    var splitSpecialCharsEnd = name.split(/[!@#$%^&*(),.?":{}|<>]$/g);      // remove special chars from ending
+    var splitSpecialCharsEnd = name.split(/[!@#$%^&*(),.?":{}|<>]$/g); // remove special chars from ending
     if (splitSpecialCharsEnd[1] !== undefined) {
         name = splitSpecialCharsEnd[0]
     }
-    name = name.split(SPACE).join(UNDERSCORE)  // replace spaces with underscores
+    name = name.split(SPACE).join(UNDERSCORE) // replace spaces with underscores
     name = name.replace(AMPERSAND, AND) // replace & with 'and'
     name = name.replace(/[:\']/g, EMPTY_SPACE) // remove colons and apostophes
     return name;
 }
 
-function getRTScore(name)
-{
+function getRTScore(name) {
     var parser = new DOMParser();
     return new Promise(function(resolve, reject) {
         fixedName = nameToRTStandard(name);
-        requestCORS(GET,  RT_TV_URI + fixedName)
-        .then(function (htmlResponse) {
-            if (htmlResponse.length < 100 && htmlResponse.includes(RT_TV_URI) && !urlSent.has(htmlResponse)) {
-                urlSent.add(htmlResponse);
-                requestCORS(GET, htmlResponse.replace(RT_TV_URI, RT_MOVIE_URI))
-                .then(function (htmlResponse) {
-                    if (htmlResponse.includes(RT_MOVIE_URI)) { // if the uri was returned the request failed
+        requestCORS(GET, RT_TV_URI + fixedName)
+            .then(function(htmlResponse) {
+                if (htmlResponse.length < 100 && htmlResponse.includes(RT_TV_URI) && !urlSent.has(htmlResponse)) {
+                    urlSent.add(htmlResponse);
+                    requestCORS(GET, htmlResponse.replace(RT_TV_URI, RT_MOVIE_URI))
+                        .then(function(htmlResponse) {
+                            if (htmlResponse.includes(RT_MOVIE_URI)) { // if the uri was returned the request failed
+                                resolve(NA)
+                            } else {
+                                var rTDocument = parser.parseFromString(htmlResponse, "text/html");
+                                var rTRScript = rTDocument.firstElementChild.firstElementChild.getElementsByTagName("script")[0].text.split("ratingValue\":")[1]
+                                if (rTRScript !== undefined) {
+                                    var ratingValue = rTRScript.slice(0, rTRScript.indexOf(RIGHT_CURLY_BRACKET))
+                                    if (ratingValue !== "null") {
+                                        resolve(ratingValue + "%")
+                                    } else {
+                                        resolve(NA)
+                                    }
+                                }
+                            };
+                        });
+                } else {
+                    if (htmlResponse === NA) {
                         resolve(NA)
-                    }
-                    else {
+                    } else {
                         var rTDocument = parser.parseFromString(htmlResponse, "text/html");
-                        var rTRScript =  rTDocument.firstElementChild.firstElementChild.getElementsByTagName("script")[0].text.split("ratingValue\":")[1]
-                        if (rTRScript !== undefined){
-                            var ratingValue = rTRScript.slice(0,rTRScript.indexOf(RIGHT_CURLY_BRACKET))
+                        var rTRScript = rTDocument.firstElementChild.firstElementChild.getElementsByTagName("script")[0].text.split("ratingValue\":")[1]
+                        if (rTRScript !== undefined) {
+                            var ratingValue = rTRScript.slice(0, rTRScript.indexOf(RIGHT_CURLY_BRACKET))
                             if (ratingValue !== "null") {
-                                resolve(ratingValue + "%")
-                            }
-                            else {
+                                resolve(ratingValue.replace("\"", "") + '%')
+                            } else {
                                 resolve(NA)
                             }
                         }
-                    };
-                });
-            }
-            else {
-                if (htmlResponse === NA) {
-                    resolve(NA)
-                }
-                else {
-                    var rTDocument = parser.parseFromString(htmlResponse, "text/html");
-                    var rTRScript =  rTDocument.firstElementChild.firstElementChild.getElementsByTagName("script")[0].text.split("ratingValue\":")[1]
-                    if (rTRScript !== undefined){
-                        var ratingValue = rTRScript.slice(0,rTRScript.indexOf(RIGHT_CURLY_BRACKET))
-                        if (ratingValue !== "null") {
-                            resolve(ratingValue.replace("\"", "") + '%')
-                        }
-                        else {
-                            resolve(NA)
-                        }
                     }
                 }
-            }
-        });
+            });
     }).catch(function(e) {
         return new Promise(function(resolve, reject) {
             resolve(NA);
@@ -151,30 +147,29 @@ function getRTScore(name)
     });
 }
 
-function getAllScores(name, hasProgress = false)
-{
+function getAllScores(name, hasProgress = false) {
     const imdbPromise = new Promise(function(resolve, reject) {
-        chrome.storage.sync.get(IMDB, function(imdbResponse){
-            if (imdbResponse.imdb === undefined || (imdbResponse.imdb)){
+        chrome.storage.sync.get(IMDB, function(imdbResponse) {
+            if (imdbResponse.imdb === undefined || (imdbResponse.imdb)) {
                 var nameImdbSuffix = name + IMDB;
-                chrome.storage.sync.get(nameImdbSuffix, function(storgeRating){
+                chrome.storage.sync.get(nameImdbSuffix, function(storgeRating) {
                     if (!isEmpty(storgeRating)) {
                         resolve(storgeRating[nameImdbSuffix])
-                    }
-                    else {
+                    } else {
                         getImdbScore(name)
-                        .then(function(imdbRating) {
-                            if (imdbRating !== NA) {
-                                var storageRatingImdb = {};
-                                storageRatingImdb[nameImdbSuffix] = imdbRating
-                                chrome.storage.sync.set(storageRatingImdb);
-                            }
-                            resolve(imdbRating);
-                        });
+                            .then(function(imdbRating) {
+                                if (imdbRating !== NA) {
+                                    var storageRatingImdb = {};
+                                    storageRatingImdb[nameImdbSuffix] = imdbRating
+                                    chrome.storage.local.set(storageRatingImdb);
+                                }
+                                resolve(imdbRating);
+                            });
                     }
                 });
+            } else {
+                resolve('');
             }
-            else {resolve('');}
         });
     });
 
@@ -182,38 +177,40 @@ function getAllScores(name, hasProgress = false)
         chrome.storage.sync.get('rottenTomatoes', function(rTResponse) {
             if (rTResponse !== undefined && rTResponse.rottenTomatoes) {
                 var nameRTSuffix = name + ROTTENTOMATOES;
-                chrome.storage.sync.get(nameRTSuffix, function(storgeRating){
+                chrome.storage.sync.get(nameRTSuffix, function(storgeRating) {
                     if (!isEmpty(storgeRating)) {
                         resolve(storgeRating[nameRTSuffix])
-                    }
-                    else {
+                    } else {
                         getRTScore(name)
-                        .then(function(rtRating) {
-                            if (rtRating !== NA) {
-                                var storageRatingRT = {};
-                                storageRatingRT[nameRTSuffix] = rtRating;
-                                chrome.storage.sync.set(storageRatingRT);   
-                            }                         
-                            resolve(rtRating)
-                        })
+                            .then(function(rtRating) {
+                                if (rtRating !== NA) {
+                                    var storageRatingRT = {};
+                                    storageRatingRT[nameRTSuffix] = rtRating;
+                                    chrome.storage.local.set(storageRatingRT);
+                                }
+                                resolve(rtRating)
+                            })
                     }
                 });
+            } else {
+                resolve('')
             }
-            else {resolve('')}
         });
     });
-        
+
     return new Promise(function(resolve, reject) {
         Promise.all([imdbPromise, rTPromise])
-        .then(function(ratings) {
-            var scoresDict = {IMDB:ratings[0], ROTTENTOMATOES:ratings[1]};
-            resolve (createScoreElements(scoresDict, hasProgress));
-        });
+            .then(function(ratings) {
+                var scoresDict = {
+                    IMDB: ratings[0],
+                    ROTTENTOMATOES: ratings[1]
+                };
+                resolve(createScoreElements(scoresDict, hasProgress));
+            });
     });
 };
 
-function createScoreElements(scoresDict, hasProgress)
-{
+function createScoreElements(scoresDict, hasProgress) {
     var scoreElement = document.createElement(DIV);
     if (!hasProgress) {
         scoreElement.style.display = "flex"
@@ -259,61 +256,62 @@ function createScoreElements(scoresDict, hasProgress)
 var sliderContent = document.getElementsByClassName("sliderContent row-with-x-columns");
 for (var rowItems of sliderContent) {
     var childSliderContent = rowItems.children;
-    for(i=0; i<6; i++){
+    for (i = 0; i < 8; i++) {
         let item = childSliderContent.item(i)
-        if(item !== null) {
+        if (item !== null) {
             var hasProgress = (item.getElementsByClassName("progress ").length > 0);
             getAllScores(item.innerText, hasProgress)
-            .then(function(element) {
-                item.append(element);
-            });
+                .then(function(element) {
+                    item.append(element);
+                });
         }
     }
 }
 
 MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
 var observer = new MutationObserver(function(mutations, observer) {
-    mutations.forEach( function (mutation) {
-        mutation.addedNodes.forEach( function (addedNode) {
+    mutations.forEach(function(mutation) {
+        mutation.addedNodes.forEach(function(addedNode) {
             if (addedNode.firstChild !== null) {
                 // Handeling the 3 first rows when redirecting back to main screen
                 if (mutation.addedNodes[0].getElementsByClassName("mainView").length > 0 ||
-                mutation.addedNodes[0].getElementsByClassName("lolomoRow lolomoRow_title_card").length > 0) {
-                    var sliderContent = Array.from(document.getElementsByClassName("sliderContent row-with-x-columns")).slice(0,3);
+                    mutation.addedNodes[0].getElementsByClassName("lolomoRow lolomoRow_title_card").length > 0) {
+                    var sliderContent = Array.from(document.getElementsByClassName("sliderContent row-with-x-columns")).slice(0, 3);
                     for (var rowItems of sliderContent) {
                         var childSliderContent = rowItems.children;
-                        for(i=0; i<6; i++){
+                        for (i = 0; i < 8; i++) {
                             let item = childSliderContent.item(i)
-                            if(item !== null) {
+                            if (item !== null) {
                                 var hasProgress = (item.getElementsByClassName("progress ").length > 0);
                                 getAllScores(item.innerText, hasProgress)
-                                .then(function(element) {
-                                    item.append(element);
-                                });
+                                    .then(function(element) {
+                                        item.append(element);
+                                    });
                             }
                         }
                     }
                 }
-                 // Handeling all rows starting from the 4th and grid view
+                // Handeling all rows starting from the 4th and grid view
                 if (addedNode.firstChild.className === "rowHeader" ||
-                addedNode.className === "galleryLockups" ||
-                addedNode.className === "rowContainer rowContainer_title_card" ||
-                addedNode.className === "gallery row-with-x-columns search") {
-                    var sliderContent = addedNode.getElementsByClassName("sliderContent row-with-x-columns");
-                    for (var rowItems of sliderContent) {
-                        var childSliderContent = rowItems.children;
-                        var length = (rowItems.children.length < 6) ? rowItems.children.length : 6;
-                        for(i=0; i<length; i++) {
-                            let item = childSliderContent.item(i)
-                            if(item !== null) {
-                                // Netflix Original loads differently, we don't want to disrupt the images
-                                if(item.getElementsByClassName("boxart-size-1x2 boxart-tall-panel boxart-container").length == 0) {
+                    addedNode.className === "galleryLockups" ||
+                    addedNode.className === "rowContainer rowContainer_title_card" ||
+                    addedNode.className === "gallery row-with-x-columns search" ||
+                    addedNode.className === "gallery row-with-x-columns") {
+                    // Netflix Original loads differently, we don't want to disrupt the images
+                    if (addedNode.querySelector("a") !== null && addedNode.querySelector("a").getAttribute("aria-label")  !== "netflix originals") {
+                        var sliderContent = addedNode.getElementsByClassName("sliderContent row-with-x-columns");
+                        for (var rowItems of sliderContent) {
+                            var childSliderContent = rowItems.children;
+                            var length = (rowItems.children.length < 6) ? rowItems.children.length : 8;
+                            for (i = 0; i < length; i++) {
+                                let item = childSliderContent.item(i)
+                                if (item !== null) {
                                     if (item.innerText.includes(NEW_LINE)) item.innerText = item.innerText.split(NEW_LINE)[0];
                                     var hasProgress = (item.getElementsByClassName("progress ").length > 0);
                                     getAllScores(item.innerText, hasProgress)
-                                    .then(function(element) {
-                                        item.append(element);
-                                    });
+                                        .then(function(element) {
+                                            item.append(element);
+                                        });
                                 }
                             }
                         }
@@ -324,9 +322,9 @@ var observer = new MutationObserver(function(mutations, observer) {
                     var item = addedNode.getElementsByClassName("title-card-container")[0];
                     var hasProgress = (item.getElementsByClassName("progress ").length > 0);
                     getAllScores(item.innerText, hasProgress)
-                    .then(function(element) {
-                        item.append(element);
-                    });
+                        .then(function(element) {
+                            item.append(element);
+                        });
                 }
             }
         });
@@ -335,5 +333,5 @@ var observer = new MutationObserver(function(mutations, observer) {
 
 observer.observe(document, {
     childList: true,
-    subtree:true
-  });
+    subtree: true
+});
